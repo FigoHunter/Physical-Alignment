@@ -1,0 +1,3 @@
+[submodule "Packages/Figo"]
+	path = Packages/Figo
+	url = git@github.com:FigoHunter/Figo-Utility.git
