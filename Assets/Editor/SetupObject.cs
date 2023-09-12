@@ -2,22 +2,13 @@ using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
 using UnityEditor;
-using static Codice.Client.BaseCommands.Import.Commit;
-using Codice.Client.Common.GameUI;
-using System.ComponentModel;
-
-public enum DiceFace
-{ 
-    ONE,
-    TWO,
-    THREE,
-    FOUR,
-    FIVE,
-    SIX
-}
-
+using Figo;
+using System.IO;
 public class SetupObject:AssetPostprocessor
 {
+    public static string OBJ_ASSET_PATH => Path.Combine("Assets", "Res","Decimated");
+
+
     void OnPreprocessModel()
     {
         ModelImporter modelImporter = assetImporter as ModelImporter;
@@ -25,55 +16,123 @@ public class SetupObject:AssetPostprocessor
         modelImporter.globalScale = 0.01f;
     }
 
-    [MenuItem("GameObject/Rosita/Physical Alignment/Move To Plane")]
-    public static void MoveToPlane()
+    [MenuItem("Rosita/Physical Alignment/Import Obj")]
+    public static void Menu_ImportObj()
     {
-        MoveToPlane(GetSelected(), Quaternion.identity);
+        var path = FigoEditorUtility.OpenFolderPanel("Load Obj", "", "");
+        ClearResPath();
+        foreach (var o in FigoPath.WalkThrough(path, true))
+        {
+            var p = Path.Combine(path, o);
+            if (p.EndsWith(".obj"))
+            {
+                ImportObj(p);
+            }
+        }
+    }
+
+    [MenuItem("Rosita/Physical Alignment/Instantiate Objs")]
+    public static void Menu_InstantiateObj()
+    {
+        var os = Object.FindObjectsOfType<PhysicalAlignment>();
+        foreach (var o in os)
+        {
+            Object.DestroyImmediate(o);
+        }
+
+        var assets = FigoAsset.FindAssets<GameObject>("t:GameObject", "Assets/Res");
+        var gos = InstantiateObjs(assets);
+        foreach (var go in gos)
+        {
+            SetupAlignment(go);
+        }
+    }
+
+    [MenuItem("GameObject/Rosita/Physical Alignment/Move To Plane")]
+    public static void Menu_MoveToPlane()
+    {
+        GetSelected().GetOrAddComponent<PhysicalAlignment>().MoveToPlane(Quaternion.identity);
     }
 
     private static DiceFace diceFace = DiceFace.ONE;
     [MenuItem("GameObject/Rosita/Physical Alignment/Roll Dice")]
-    public static void RollDice()
+    public static void Menu_RollDice()
     {
         var selected = GetSelected();
         diceFace = (DiceFace)(((int)diceFace+1)%6);
-        var rot = RollDice(diceFace);
+        var rot = diceFace.RollDice();
         selected.transform.rotation = rot;
-        MoveToPlane(selected, rot);
+        GetSelected().GetOrAddComponent<PhysicalAlignment>().MoveToPlane(rot);
+    }
+
+    [MenuItem("GameObject/Rosita/Physical Alignment/Setup Rigidbody")]
+    public static void Menu_SetupRigidbody()
+    {
+        var selected = GetSelected();
+        SetupAlignment(selected);
+    }
+
+    [MenuItem("Rosita/Physical Alignment/Play")]
+    public static void Menu_Play()
+    {
+        EditorApplication.EnterPlaymode();
     }
 
 
-    public static void MoveToPlane(GameObject target,Quaternion rot)
-    {
-        Mesh mesh = target.GetComponentInChildren<MeshFilter>().sharedMesh;
-        mesh.RecalculateBounds();
-        Bounds bbox = mesh.bounds;
-        Vector3 pos = target.transform.position;
-        var max = rot * bbox.max;
-        var min = rot * bbox.min;
 
-        target.transform.position = new Vector3(pos.x, -Mathf.Min(max.y, min.y), pos.z);
+    public static (PhysicalAlignment pa, Rigidbody rb, MeshCollider mc) SetupAlignment(GameObject go)
+    {
+        var rigidbody = go.GetOrAddComponent<Rigidbody>();
+        var collider = go.GetOrAddComponent<MeshCollider>();
+        var mesh = go.GetComponentInChildren<MeshFilter>().sharedMesh;
+        collider.sharedMesh = mesh;
+        collider.convex = true;
+        var physicalAlignment = go.GetOrAddComponent<PhysicalAlignment>();
+        return (physicalAlignment, rigidbody, collider);
     }
 
-    public static Quaternion RollDice(DiceFace diceface)
+    public static GameObject[] ImportObj(params string[] path)
     {
-        switch (diceface)
+        Debug.Log(ApplicationPath.projectPath);
+
+        for (int i = 0; i < path.Length; i++)
         {
-            case DiceFace.ONE:
-                return Quaternion.identity;
-            case DiceFace.TWO:
-                return Quaternion.Euler(90f, 0f, 0f);
-            case DiceFace.THREE:
-                return Quaternion.Euler(0f, 0f, 90f);
-            case DiceFace.FOUR:
-                return Quaternion.Euler(-90f,0f,0f);
-            case DiceFace.FIVE:
-                return Quaternion.Euler(0f, 0f, -90f);
-            case DiceFace.SIX:
-                return Quaternion.Euler(180f, 0f, 0f);
-            default:
-                throw new System.Exception("Value Not Valid");
+            var p = path[i];
+            var ps = p.Split('/');
+            var baseName = ps[ps.Length-3] + ".obj";
+            var target = Path.Combine(ApplicationPath.projectPath, OBJ_ASSET_PATH, baseName);
+            File.Copy(p, target);
+            path[i] = Path.Combine(OBJ_ASSET_PATH, baseName);
         }
+        List<GameObject> result = new List<GameObject>();
+        foreach (var p in path)
+        {
+            AssetDatabase.ImportAsset(p);
+            var go = AssetDatabase.LoadAssetAtPath<GameObject>(p);
+            result.Add(go);
+        }
+        return result.ToArray();
+    }
+
+    public static void ClearResPath()
+    {
+        DirectoryInfo d = new DirectoryInfo(Path.Combine(ApplicationPath.projectPath, OBJ_ASSET_PATH));
+        foreach (var f in d.EnumerateFiles())
+        {
+            File.Delete(f.FullName);
+        }
+        AssetDatabase.Refresh();
+    }
+
+    public static GameObject[] InstantiateObjs(params GameObject[] assets)
+    {
+        GameObject[] instantiated = new GameObject[assets.Length];
+        for (int i = 0; i < assets.Length; i++)
+        {
+            instantiated[i] = Object.Instantiate(assets[i]);
+            instantiated[i].name = assets[i].name;
+        }
+        return instantiated;
     }
 
     private static GameObject GetSelected()
