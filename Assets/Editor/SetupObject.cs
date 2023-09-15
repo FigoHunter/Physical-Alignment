@@ -6,12 +6,12 @@ using Figo;
 using System.IO;
 using UnityEditor.SceneManagement;
 using System.Linq;
-using Codice.CM.Client.Differences.Merge;
 
 public class SetupObject:AssetPostprocessor
 {
     public const int SimulationFPS = 120;
     public const float SimTime = 2f;
+    
     public static string OBJ_ASSET_PATH => Path.Combine("Assets", "Res","Decimated");
     public const string SCENE_PATH = "Assets/Scenes/SampleScene.unity";
 
@@ -75,6 +75,7 @@ public class SetupObject:AssetPostprocessor
         var phyAligns = gos.Select(x => x.GetComponent<PhysicalAlignment>());
 
         EditorPlay(phyAligns.ToArray());
+        CameraRender(phyAligns.ToArray());
         DumpJson(phyAligns.ToArray());
     }
 
@@ -153,6 +154,31 @@ public class SetupObject:AssetPostprocessor
     {
         var phyAligns = Object.FindObjectsOfType<PhysicalAlignment>();
         EditorPlay(phyAligns);
+    }
+
+    [MenuItem("GameObject/Rosita/Camera Look")]
+    public static void Menu_CameraLook()
+    {
+        var go = Selection.activeGameObject;
+        foreach (var path in CameraRender(go.GetComponent<PhysicalAlignment>()))
+        {
+            Debug.Log(path);
+        }
+        //var first = .First();
+        //EditorUtility.RevealInFinder(first);
+    }
+
+    public static string[] CameraRender(params PhysicalAlignment[] phyAligns)
+    {
+        var cam = Camera.main;
+
+        List<string> paths = new List<string>();
+
+        foreach (var pa in phyAligns)
+        {
+            paths.AddRange(pa.RenderCamera(cam));
+        }
+        return paths.ToArray();
     }
 
     public static void EditorPlay(params PhysicalAlignment[] phyAligns)

@@ -1,8 +1,8 @@
 using Figo;
-using JetBrains.Annotations;
 using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
+using System.IO;
 
 public enum AlignmentState:int
 {
@@ -38,6 +38,7 @@ public class PhysicalAlignment : MonoBehaviour
     public const float DeltaThreshold = 10e-5f;
     public const float DeltaRotThreshold = 10e-5f;
     public const float FinalRotThreshold = 25f;
+    public const float CamDistance = 3f;
 
     [SerializeField]
     private Bounds m_Bounds;
@@ -98,6 +99,33 @@ public class PhysicalAlignment : MonoBehaviour
 
     [SerializeField]
     private Matrix4x4[] mats = new Matrix4x4[6];
+
+
+    private static RenderTexture s_RenderTexture;
+    public static RenderTexture RenderTexture
+    {
+        get
+        {
+            if (s_RenderTexture == null)
+            {
+                s_RenderTexture = new RenderTexture(800, 600, 1, RenderTextureFormat.ARGB32, 0);
+            }
+            return s_RenderTexture;
+        }
+    }
+
+    private static Texture2D s_Texture2d;
+    public static Texture2D Texture2D
+    {
+        get
+        {
+            if (s_Texture2d == null)
+            {
+                s_Texture2d = new Texture2D(800, 600, TextureFormat.RGB24, false);
+            }
+            return s_Texture2d;
+        }
+    }
 
     public GameObject GetGameObject(DiceFace face)
     {
@@ -269,5 +297,29 @@ public class PhysicalAlignment : MonoBehaviour
             }
         }
         return JsonUtility.ToJson(data);
+    }
+
+    public string[] RenderCamera(Camera cam)
+    {
+        List<string> paths = new List<string>();
+        for (int i = 0; i < 6; i++)
+        {
+            var state = GetAlignmentState((DiceFace)i);
+            if (state == AlignmentState.Concatenate)
+            {
+                var go = GetGameObject((DiceFace)i);
+                cam.transform.position = go.transform.position - cam.transform.forward * CamDistance * MaxDimension;
+                cam.targetTexture = RenderTexture;
+                cam.Render();
+                RenderTexture.active = RenderTexture;
+                Texture2D.ReadPixels(new Rect(0, 0, RenderTexture.width, RenderTexture.height), 0, 0);
+                Texture2D.Apply();
+                var bytes = Texture2D.EncodeToPNG();
+                var path = System.IO.Path.ChangeExtension(Path,"") + $"_{(DiceFace)i}.png";
+                File.WriteAllBytes(path, bytes);
+                paths.Add(path);
+            }
+        }
+        return paths.ToArray();
     }
 }
