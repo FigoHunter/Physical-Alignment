@@ -38,7 +38,7 @@ public class SetupObject:AssetPostprocessor
         List<string> objs;
         if (!string.IsNullOrEmpty(args))
         {
-            objs = args.Split(sep).ToList();
+            objs = args.ForwardSlash().Split(sep).ToList();
         }
         else
         {
