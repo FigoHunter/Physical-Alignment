@@ -77,6 +77,10 @@ public class SetupObject:AssetPostprocessor
         EditorPlay(phyAligns.ToArray());
         CameraRender(phyAligns.ToArray());
         DumpJson(phyAligns.ToArray());
+        if (Application.isBatchMode)
+        {
+            EditorApplication.Exit(123);
+        }
     }
 
     [MenuItem("Rosita/Physical Alignment/Import Obj")]
