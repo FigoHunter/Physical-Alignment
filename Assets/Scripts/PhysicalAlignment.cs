@@ -27,7 +27,7 @@ public class AlignmentData
         var piece = new ConcatenateInfo()
         {
             pos = new float[] { pos.x, pos.y, pos.z },
-            rot = new float[] { rot.w, rot.x, rot.y, rot.z }
+            rot = new float[] { rot.x, rot.y, rot.z, rot.w}
         };
         data.Add(piece);
     }
@@ -307,6 +307,7 @@ public class PhysicalAlignment : MonoBehaviour
                 mat = Coord * mat * Matrix4x4.Inverse(Coord);
                 (var pos, var rot,_) = mat.GetTrs();
                 pos = pos - Vector3.up*0.1f;
+                rot = ((DiceFace)i).RollDice() * rot;
                 data.Append(pos, rot);
             }
         }
