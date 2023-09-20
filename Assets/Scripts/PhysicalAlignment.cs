@@ -127,6 +127,18 @@ public class PhysicalAlignment : MonoBehaviour
         }
     }
 
+    public static Matrix4x4 Coord
+    {
+        get
+        {
+            return new Matrix4x4(
+                new Vector4(0f, 0f, -1f, 0f),
+                new Vector4(0f, 1f, 0f, 0f),
+                new Vector4(-1f, 0f, 0f, 0f),
+                new Vector4(0f, 0f, 0f, 1f));
+        }
+    }
+
     public GameObject GetGameObject(DiceFace face)
     {
         return m_FaceObjects[(int)face];
@@ -291,7 +303,9 @@ public class PhysicalAlignment : MonoBehaviour
             var state = GetAlignmentState((DiceFace)i);
             if (state == AlignmentState.Concatenate)
             {
-                (var pos, var rot) = GetDeltaTrOverall((DiceFace)i);
+                var mat = m_DeltaOverall[i];
+                mat = Coord * mat * Matrix4x4.Inverse(Coord);
+                (var pos, var rot,_) = mat.GetTrs();
                 pos = pos - Vector3.up*0.1f;
                 data.Append(pos, rot);
             }
