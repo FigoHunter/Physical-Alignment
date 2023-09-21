@@ -303,11 +303,12 @@ public class PhysicalAlignment : MonoBehaviour
             var state = GetAlignmentState((DiceFace)i);
             if (state == AlignmentState.Concatenate)
             {
-                var mat = m_DeltaOverall[i];
-                mat = Coord * mat * Matrix4x4.Inverse(Coord);
-                (var pos, var rot,_) = mat.GetTrs();
+                (var pos, var rot) = GetDeltaTrOverall((DiceFace)i);
                 pos = pos - Vector3.up*0.1f;
                 rot = ((DiceFace)i).RollDice() * rot;
+                var mat = Matrix4x4.TRS(pos, rot, Vector3.one);
+                mat = Coord * mat * Matrix4x4.Inverse(Coord);
+                (pos, rot, _) = mat.GetTrs();
                 data.Append(pos, rot);
             }
         }
