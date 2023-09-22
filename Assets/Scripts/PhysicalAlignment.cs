@@ -3,6 +3,8 @@ using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
 using System.IO;
+using Newtonsoft.Json;
+using Newtonsoft.Json.Linq;
 
 public enum AlignmentState:int
 {
@@ -17,8 +19,8 @@ public class AlignmentData
     [System.Serializable]
     public struct ConcatenateInfo
     {
-        public float[] pos;
-        public float[] rot;
+        public Vector3 pos;
+        public Quaternion rot;
     }
     public List<ConcatenateInfo> data = new List<ConcatenateInfo>();
 
@@ -26,10 +28,41 @@ public class AlignmentData
     {
         var piece = new ConcatenateInfo()
         {
-            pos = new float[] { pos.x, pos.y, pos.z },
-            rot = new float[] { rot.x, rot.y, rot.z, rot.w}
+            pos = pos,
+            rot = rot
         };
         data.Add(piece);
+    }
+
+    public override string ToString()
+    { 
+        JObject root = new JObject();
+        root["coord"] = new JObject();
+        root["coord"]["x"] = "right";
+        root["coord"]["y"] = "up";
+        root["coord"]["z"] = "backward";
+        var data = new JArray();
+        root["data"] = data;
+        foreach (var piece in this.data)
+        {
+            var dataPiece = new JObject();
+            dataPiece["pos"] = new JArray(new float[] { piece.pos.x, piece.pos.y, piece.pos.z});
+            dataPiece["rot"] = new JArray(new float[] { piece.rot.x, piece.rot.y, piece.rot.z, piece.rot.w });
+
+            var mat = Matrix4x4.TRS(piece.pos, piece.rot, Vector3.one);
+
+            var matrix = new JArray
+            {
+                new JArray(new float[] { mat.m00, mat.m01, mat.m02, mat.m03 }),
+                new JArray(new float[] { mat.m10, mat.m11, mat.m12, mat.m13 }),
+                new JArray(new float[] { mat.m20, mat.m21, mat.m22, mat.m23 }),
+                new JArray(new float[] { mat.m30, mat.m31, mat.m32, mat.m33 })
+            };
+            dataPiece["matrix"] = matrix;
+
+            data.Add(dataPiece);
+        }
+        return root.ToString();
     }
 }
 
@@ -132,9 +165,9 @@ public class PhysicalAlignment : MonoBehaviour
         get
         {
             return new Matrix4x4(
-                new Vector4(0f, 0f, -1f, 0f),
-                new Vector4(0f, 1f, 0f, 0f),
                 new Vector4(-1f, 0f, 0f, 0f),
+                new Vector4(0f, 1f, 0f, 0f),
+                new Vector4(0f, 0f, 1f, 0f),
                 new Vector4(0f, 0f, 0f, 1f));
         }
     }
@@ -305,14 +338,14 @@ public class PhysicalAlignment : MonoBehaviour
             {
                 (var pos, var rot) = GetDeltaTrOverall((DiceFace)i);
                 pos = pos - Vector3.up*0.1f;
-                rot = ((DiceFace)i).RollDice() * rot;
+                rot = rot * ((DiceFace)i).RollDice();
                 var mat = Matrix4x4.TRS(pos, rot, Vector3.one);
                 mat = Coord * mat * Matrix4x4.Inverse(Coord);
                 (pos, rot, _) = mat.GetTrs();
                 data.Append(pos, rot);
             }
         }
-        return JsonUtility.ToJson(data);
+        return data.ToString();
     }
 
     public string[] RenderCamera(Camera cam)
